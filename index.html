@@ -9,7 +9,6 @@
   <title>RE Hours Timer</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -139,19 +138,6 @@
       font-weight: 600;
     }
 
-    .export-btn {
-      padding: 8px 16px;
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      background: transparent;
-      color: var(--highlight);
-      font-size: 0.85rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-    }
-    .export-btn:disabled { opacity: 0.3; cursor: default; }
-
     .clear-btn {
       padding: 8px 12px;
       border: 1px solid var(--accent);
@@ -233,7 +219,6 @@
     <div class="history-header">
       <h2>Recent Entries</h2>
       <div>
-        <button class="export-btn" id="exportBtn" onclick="exportXlsx()">Export .xlsx</button>
         <button class="clear-btn" id="clearBtn" onclick="clearHistory()">Clear</button>
       </div>
     </div>
@@ -304,8 +289,12 @@
 
     function sendToSheets(date, hours, notes) {
       const url = SHEETS_URL + '?date=' + encodeURIComponent(date) + '&hours=' + encodeURIComponent(hours) + '&notes=' + encodeURIComponent(notes);
-      fetch(url, { mode: 'no-cors' }).then(() => {
-        showStatus('Saved to Google Sheets', false);
+      fetch(url).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          showStatus('Saved to Google Sheets', false);
+        } else {
+          showStatus('Sync issue — entry saved locally', true);
+        }
       }).catch(() => {
         showStatus('Failed to sync — entry saved locally', true);
       });
@@ -404,33 +393,6 @@
       const d = document.createElement('div');
       d.textContent = str;
       return d.innerHTML;
-    }
-
-    function exportXlsx() {
-      if (entries.length === 0) return;
-      const rows = [['Date', 'Hours', 'Notes']];
-      // Export in chronological order (oldest first) to match the existing log
-      const sorted = [...entries].reverse();
-      sorted.forEach(e => {
-        const d = new Date(e.date);
-        rows.push([d, e.hours, e.notes]);
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-
-      // Format date column
-      const dateFormat = 'mm-dd-yy';
-      for (let r = 1; r < rows.length; r++) {
-        const cell = ws[XLSX.utils.encode_cell({r, c: 0})];
-        if (cell) cell.z = dateFormat;
-      }
-
-      // Set column widths
-      ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 60 }];
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Hours');
-      XLSX.writeFile(wb, 'RE_Hours_Export.xlsx');
     }
 
     // Register service worker
