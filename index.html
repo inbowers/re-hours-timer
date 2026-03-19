@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>RE Hours Timer</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --accent: #0f3460;
+      --highlight: #e94560;
+      --text: #eee;
+      --muted: #888;
+      --green: #2ecc71;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    header {
+      text-align: center;
+      padding: 20px 16px 10px;
+    }
+    header h1 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .timer-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+    }
+
+    .timer-display {
+      font-size: 3.5rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .date-display {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .notes-input {
+      width: 100%;
+      max-width: 500px;
+      padding: 14px 16px;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 50px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .notes-input:focus {
+      outline: none;
+      border-color: var(--highlight);
+    }
+    .notes-input::placeholder {
+      color: var(--muted);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      padding: 14px 36px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1.1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-start {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-stop {
+      background: var(--highlight);
+      color: #fff;
+    }
+    .btn-cancel {
+      background: var(--accent);
+      color: var(--text);
+    }
+
+    .history-section {
+      flex: 1;
+      padding: 10px 16px 100px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .history-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .export-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--highlight);
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .export-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .clear-btn {
+      padding: 8px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .entry {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .entry-info { flex: 1; min-width: 0; }
+    .entry-date {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .entry-notes {
+      font-size: 0.95rem;
+      word-wrap: break-word;
+    }
+    .entry-hours {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--green);
+      white-space: nowrap;
+    }
+    .entry-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 0;
+      font-size: 0.9rem;
+    }
+
+    @media (min-width: 600px) {
+      .timer-display { font-size: 5rem; }
+      header { padding-top: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RE Hours Timer</h1>
+  </header>
+
+  <div class="timer-section">
+    <div class="timer-display" id="timer">0:00:00</div>
+    <div class="date-display" id="dateDisplay"></div>
+    <textarea class="notes-input" id="notes" placeholder="What are you working on?" rows="2"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-start" id="startBtn" onclick="startTimer()">Start</button>
+      <button class="btn btn-stop" id="stopBtn" onclick="stopTimer()" style="display:none">Stop</button>
+      <button class="btn btn-cancel" id="cancelBtn" onclick="cancelTimer()" style="display:none">Cancel</button>
+    </div>
+  </div>
+
+  <div class="history-section">
+    <div class="history-header">
+      <h2>Recent Entries</h2>
+      <div>
+        <button class="export-btn" id="exportBtn" onclick="exportXlsx()">Export .xlsx</button>
+        <button class="clear-btn" id="clearBtn" onclick="clearHistory()">Clear</button>
+      </div>
+    </div>
+    <div id="entries"></div>
+  </div>
+
+  <script>
+    let startTime = null;
+    let timerInterval = null;
+    let entries = JSON.parse(localStorage.getItem('re_hours_entries') || '[]');
+
+    // Restore running timer across page reloads
+    const saved = localStorage.getItem('re_hours_running');
+    if (saved) {
+      const state = JSON.parse(saved);
+      startTime = state.startTime;
+      document.getElementById('notes').value = state.notes || '';
+      showRunningUI();
+      timerInterval = setInterval(updateDisplay, 1000);
+      updateDisplay();
+    }
+
+    renderEntries();
+    updateDateDisplay();
+
+    function updateDateDisplay() {
+      const d = startTime ? new Date(startTime) : new Date();
+      document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    function startTimer() {
+      startTime = Date.now();
+      localStorage.setItem('re_hours_running', JSON.stringify({
+        startTime,
+        notes: document.getElementById('notes').value
+      }));
+      showRunningUI();
+      updateDateDisplay();
+      timerInterval = setInterval(updateDisplay, 1000);
+      updateDisplay();
+    }
+
+    function stopTimer() {
+      if (!startTime) return;
+      clearInterval(timerInterval);
+      const elapsed = (Date.now() - startTime) / 3600000;
+      const hours = Math.round(elapsed * 4) / 4; // round to nearest 0.25
+      const notes = document.getElementById('notes').value.trim();
+      const entry = {
+        date: new Date(startTime).toISOString(),
+        hours: Math.max(hours, 0.25),
+        notes: notes || '(no description)'
+      };
+      entries.unshift(entry);
+      saveEntries();
+      resetUI();
+      renderEntries();
+    }
+
+    function cancelTimer() {
+      clearInterval(timerInterval);
+      resetUI();
+    }
+
+    function resetUI() {
+      startTime = null;
+      localStorage.removeItem('re_hours_running');
+      document.getElementById('timer').textContent = '0:00:00';
+      document.getElementById('notes').value = '';
+      document.getElementById('startBtn').style.display = '';
+      document.getElementById('stopBtn').style.display = 'none';
+      document.getElementById('cancelBtn').style.display = 'none';
+      updateDateDisplay();
+    }
+
+    function showRunningUI() {
+      document.getElementById('startBtn').style.display = 'none';
+      document.getElementById('stopBtn').style.display = '';
+      document.getElementById('cancelBtn').style.display = '';
+    }
+
+    function updateDisplay() {
+      if (!startTime) return;
+      const diff = Math.floor((Date.now() - startTime) / 1000);
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      document.getElementById('timer').textContent =
+        `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      // Keep notes synced for reload persistence
+      localStorage.setItem('re_hours_running', JSON.stringify({
+        startTime,
+        notes: document.getElementById('notes').value
+      }));
+    }
+
+    function renderEntries() {
+      const container = document.getElementById('entries');
+      if (entries.length === 0) {
+        container.innerHTML = '<div class="empty-state">No entries yet. Start the timer to log hours.</div>';
+        return;
+      }
+      container.innerHTML = entries.map((e, i) => {
+        const d = new Date(e.date);
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `<div class="entry">
+          <div class="entry-info">
+            <div class="entry-date">${dateStr}</div>
+            <div class="entry-notes">${escapeHtml(e.notes)}</div>
+          </div>
+          <div class="entry-hours">${e.hours}h</div>
+          <button class="entry-delete" onclick="deleteEntry(${i})" title="Delete">&times;</button>
+        </div>`;
+      }).join('');
+    }
+
+    function deleteEntry(i) {
+      entries.splice(i, 1);
+      saveEntries();
+      renderEntries();
+    }
+
+    function clearHistory() {
+      if (entries.length === 0) return;
+      if (!confirm('Clear all entries? This cannot be undone.')) return;
+      entries = [];
+      saveEntries();
+      renderEntries();
+    }
+
+    function saveEntries() {
+      localStorage.setItem('re_hours_entries', JSON.stringify(entries));
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function exportXlsx() {
+      if (entries.length === 0) return;
+      const rows = [['Date', 'Hours', 'Notes']];
+      // Export in chronological order (oldest first) to match the existing log
+      const sorted = [...entries].reverse();
+      sorted.forEach(e => {
+        const d = new Date(e.date);
+        rows.push([d, e.hours, e.notes]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      // Format date column
+      const dateFormat = 'mm-dd-yy';
+      for (let r = 1; r < rows.length; r++) {
+        const cell = ws[XLSX.utils.encode_cell({r, c: 0})];
+        if (cell) cell.z = dateFormat;
+      }
+
+      // Set column widths
+      ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 60 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Hours');
+      XLSX.writeFile(wb, 'RE_Hours_Export.xlsx');
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
