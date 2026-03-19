@@ -241,6 +241,8 @@
   </div>
 
   <script>
+    const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxgTCo5ovSzQz4Tb3zk9eQLhG7HD-u3C1XMVoZORK4Iz6QaIgIS4DgGeyEgDUFalvJfZw/exec';
+
     let startTime = null;
     let timerInterval = null;
     let entries = JSON.parse(localStorage.getItem('re_hours_entries') || '[]');
@@ -282,17 +284,45 @@
       if (!startTime) return;
       clearInterval(timerInterval);
       const elapsed = (Date.now() - startTime) / 3600000;
-      const hours = Math.round(elapsed * 4) / 4; // round to nearest 0.25
-      const notes = document.getElementById('notes').value.trim();
+      const hours = Math.max(Math.round(elapsed * 4) / 4, 0.25);
+      const notes = document.getElementById('notes').value.trim() || '(no description)';
+      const d = new Date(startTime);
+      const dateStr = (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear();
       const entry = {
-        date: new Date(startTime).toISOString(),
-        hours: Math.max(hours, 0.25),
-        notes: notes || '(no description)'
+        date: d.toISOString(),
+        hours: hours,
+        notes: notes
       };
       entries.unshift(entry);
       saveEntries();
-      resetUI();
       renderEntries();
+
+      // Send to Google Sheets
+      sendToSheets(dateStr, hours, notes);
+      resetUI();
+    }
+
+    function sendToSheets(date, hours, notes) {
+      const url = SHEETS_URL + '?date=' + encodeURIComponent(date) + '&hours=' + encodeURIComponent(hours) + '&notes=' + encodeURIComponent(notes);
+      fetch(url, { mode: 'no-cors' }).then(() => {
+        showStatus('Saved to Google Sheets', false);
+      }).catch(() => {
+        showStatus('Failed to sync — entry saved locally', true);
+      });
+    }
+
+    function showStatus(msg, isError) {
+      let el = document.getElementById('status');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'status';
+        el.style.cssText = 'text-align:center;padding:8px;font-size:0.85rem;transition:opacity 0.5s;';
+        document.querySelector('.timer-section').appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.color = isError ? 'var(--highlight)' : 'var(--green)';
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.opacity = '0'; }, 3000);
     }
 
     function cancelTimer() {
